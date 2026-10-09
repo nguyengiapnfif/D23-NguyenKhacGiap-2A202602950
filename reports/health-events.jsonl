@@ -1,0 +1,3 @@
+{"ts": 1791538007.153075, "event": "state_change", "region": "b", "to": "UNHEALTHY", "reason": "status=503 pool_state=warm,model_weights_missing,vector_db_empty(count=0)", "interval_s": 5.0, "threshold": 3, "consecutive_fails": 3}
+{"ts": 1791538024.156538, "event": "state_change", "region": "a", "to": "UNHEALTHY", "reason": "timeout", "interval_s": 5.0, "threshold": 3, "consecutive_fails": 3}
+{"ts": 1791538049.1705542, "event": "state_change", "region": "b", "to": "HEALTHY", "reason": "ok", "interval_s": 5.0, "threshold": 3, "consecutive_fails": 0}

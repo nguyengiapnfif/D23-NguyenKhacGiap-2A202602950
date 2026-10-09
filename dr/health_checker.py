@@ -29,13 +29,54 @@ URL = {"a": "http://127.0.0.1:8001", "b": "http://127.0.0.1:8002"}
 
 
 def probe(region: str, timeout: float) -> tuple[bool, str]:
-    """TODO: trả về (ready, reason). Timeout PHẢI có — netblock làm request treo mãi."""
-    raise NotImplementedError
+    """Trả về (ready, reason). Timeout PHẢI có — netblock làm request treo mãi."""
+    try:
+        r = httpx.get(f"{URL[region]}/readyz", timeout=timeout)
+    except httpx.TimeoutException:
+        return False, "timeout"
+    except httpx.HTTPError as e:
+        return False, f"{type(e).__name__}"
+    if r.status_code == 200:
+        return True, "ok"
+    try:
+        reasons = ",".join(r.json().get("reasons", []))
+    except ValueError:
+        reasons = ""
+    return False, f"status={r.status_code}" + (f" {reasons}" if reasons else "")
 
 
 def run(interval: float, timeout: float, threshold: int, duration: float, out: pathlib.Path):
-    """TODO: vòng lặp poll + phát hiện transition + ghi JSONL."""
-    raise NotImplementedError
+    """Vòng lặp poll + phát hiện transition + ghi JSONL."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    state = {r: "HEALTHY" for r in URL}
+    fails = {r: 0 for r in URL}
+    oks = {r: 0 for r in URL}
+    end = time.time() + duration
+    with out.open("a", encoding="utf-8") as f:
+        while time.time() < end:
+            tick = time.time()
+            for region in URL:
+                ready, reason = probe(region, timeout)
+                if ready:
+                    fails[region] = 0
+                    oks[region] += 1
+                else:
+                    oks[region] = 0
+                    fails[region] += 1
+                new = None
+                if state[region] == "HEALTHY" and fails[region] >= threshold:
+                    new = "UNHEALTHY"
+                elif state[region] == "UNHEALTHY" and oks[region] >= threshold:
+                    new = "HEALTHY"
+                if new:
+                    state[region] = new
+                    f.write(json.dumps({
+                        "ts": time.time(), "event": "state_change", "region": region,
+                        "to": new, "reason": reason, "interval_s": interval,
+                        "threshold": threshold, "consecutive_fails": fails[region],
+                    }) + "\n")
+                    f.flush()
+            time.sleep(max(0.0, interval - (time.time() - tick)))
 
 
 if __name__ == "__main__":
